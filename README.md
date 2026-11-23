@@ -21,20 +21,17 @@
 
 ## 🚀 使用方式
 
-1. 下載 `python猜謎互動遊戲.html`
+1. 下載 `index.html`（即遊戲主檔；`python猜謎互動遊戲.html` 為轉址頁，開啟後會自動進入遊戲）
 2. 用瀏覽器（Chrome / Edge / Firefox / Safari）直接開啟即可遊玩
 3. 課堂上可投影於大螢幕分組搶答，亦可上傳至任何靜態網站空間
 
 ## 🌐 線上遊玩（GitHub Pages）
 
-本倉庫已可啟用 GitHub Pages：
+本倉庫已啟用 GitHub Pages：
 
-1. 倉庫 **Settings → Pages**
-2. **Source** 選擇 `Deploy from a branch`
-3. **Branch** 選擇 `main`、資料夾選 `/ (root)`，按 Save
-4. 約 1 分鐘後即可透過 `https://<你的帳號>.github.io/python-quiz-game/` 開啟
+**👉 https://steven-tso.github.io/python-quiz-game/**
 
-> 提示：可將首頁檔案改名為 `index.html`，網址就不必附檔名。
+（倉庫 Settings → Pages → Branch：`main` / `(root)`，即可重新部署。）
 
 ## 📚 題庫涵蓋範圍
 

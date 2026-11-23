@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python 猜謎大挑戰｜60 秒限時互動遊戲</title>
+<style>
+  :root{
+    --bg1:#0f2027; --bg2:#203a43; --bg3:#2c5364;
+    --card:rgba(255,255,255,.08);
+    --gold:#ffd166; --green:#06d6a0; --red:#ef476f; --blue:#4cc9f0;
+    --text:#f4f7fb; --muted:#a9bccd;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:"Segoe UI","Microsoft JhengHei",system-ui,sans-serif;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+    color:var(--text);display:flex;align-items:center;justify-content:center;
+    padding:20px;overflow-x:hidden;position:relative;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;
+    background:radial-gradient(circle at 20% 20%,rgba(76,201,240,.18),transparent 45%),
+               radial-gradient(circle at 80% 80%,rgba(255,209,102,.15),transparent 45%);
+  }
+  #fx{position:fixed;inset:0;pointer-events:none;z-index:5}
+
+  .app{
+    width:min(880px,100%);position:relative;z-index:2;
+    background:var(--card);backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.16);border-radius:26px;
+    padding:30px 32px 34px;box-shadow:0 24px 60px rgba(0,0,0,.45);
+    animation:floatIn .5s ease both;
+  }
+  @keyframes floatIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+  .screen{display:none;animation:floatIn .45s ease both}
+  .screen.active{display:block}
+
+  h1{font-size:clamp(26px,4.6vw,40px);text-align:center;line-height:1.25;
+     background:linear-gradient(90deg,#4cc9f0,#06d6a0,#ffd166);
+     -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{text-align:center;color:var(--muted);margin-top:8px;font-size:15px}
+  .logo{font-size:56px;text-align:center;margin-bottom:6px;animation:bob 2.4s ease-in-out infinite}
+  @keyframes bob{50%{transform:translateY(-8px) rotate(-4deg)}}
+
+  .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:24px 0}
+  .rule{background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px 16px}
+  .rule b{display:block;color:var(--gold);font-size:15px;margin-bottom:4px}
+  .rule span{font-size:13px;color:var(--muted);line-height:1.5}
+
+  .btn{
+    display:block;width:100%;border:none;cursor:pointer;border-radius:16px;
+    padding:16px;font-size:19px;font-weight:700;color:#08211d;
+    background:linear-gradient(135deg,#06d6a0,#4cc9f0);
+    box-shadow:0 10px 26px rgba(6,214,160,.35);
+    transition:transform .15s,box-shadow .15s;font-family:inherit;
+  }
+  .btn:hover{transform:translateY(-3px);box-shadow:0 16px 32px rgba(6,214,160,.45)}
+  .btn:active{transform:scale(.97)}
+  .btn.ghost{background:rgba(255,255,255,.1);color:var(--text);
+    box-shadow:none;border:1px solid rgba(255,255,255,.25);font-size:15px;padding:13px}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+  /* 遊戲中 */
+  .hud{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.14);
+    padding:8px 14px;border-radius:999px;font-size:14px;font-weight:600}
+  .chip b{color:var(--gold);font-size:16px}
+  .timer-wrap{margin:6px 0 18px}
+  .timer-bar{height:16px;background:rgba(0,0,0,.35);border-radius:999px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.12);position:relative}
+  .timer-fill{height:100%;width:100%;border-radius:999px;
+    background:linear-gradient(90deg,#06d6a0,#4cc9f0);
+    transition:width .3s linear,background .3s}
+  .timer-fill.warn{background:linear-gradient(90deg,#ffd166,#f4a261)}
+  .timer-fill.danger{background:linear-gradient(90deg,#ef476f,#ff7b9c);animation:pulse .5s infinite}
+  @keyframes pulse{50%{opacity:.55}}
+  .timer-text{text-align:center;font-size:13px;color:var(--muted);margin-top:6px;letter-spacing:.5px}
+  .timer-text strong{font-size:22px;color:#fff;font-variant-numeric:tabular-nums}
+
+  .qcard{background:rgba(0,0,0,.26);border:1px solid rgba(255,255,255,.12);
+    border-radius:20px;padding:24px;min-height:110px;display:flex;flex-direction:column;justify-content:center}
+  .qtag{display:inline-block;font-size:12px;letter-spacing:2px;color:var(--blue);
+    text-transform:uppercase;margin-bottom:8px}
+  .qtext{font-size:clamp(18px,2.6vw,24px);font-weight:700;line-height:1.55}
+  .code{font-family:Consolas,"Courier New",monospace;background:#0b1620;color:#9fe8ff;
+    padding:3px 9px;border-radius:8px;font-size:.92em;border:1px solid rgba(159,232,255,.25)}
+
+  .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:16px}
+  .opt{
+    text-align:left;background:rgba(255,255,255,.09);border:2px solid rgba(255,255,255,.16);
+    color:var(--text);border-radius:15px;padding:14px 16px;font-size:16px;cursor:pointer;
+    font-family:inherit;transition:.16s;display:flex;gap:10px;align-items:center;position:relative;overflow:hidden
+  }
+  .opt:hover:not(:disabled){background:rgba(76,201,240,.18);border-color:var(--blue);transform:translateY(-2px)}
+  .opt .key{flex:0 0 26px;height:26px;border-radius:8px;background:rgba(255,255,255,.16);
+    display:grid;place-items:center;font-size:13px;font-weight:700}
+  .opt.correct{background:rgba(6,214,160,.28);border-color:var(--green);animation:pop .4s}
+  .opt.wrong{background:rgba(239,71,111,.26);border-color:var(--red);animation:shake .4s}
+  .opt.dim{opacity:.4}
+  .opt:disabled{cursor:default}
+  @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.05)}100%{transform:scale(1)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}
+    40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+
+  .feedback{margin-top:14px;min-height:56px;border-radius:14px;padding:12px 16px;
+    font-size:15px;line-height:1.6;display:none;
+    background:rgba(0,0,0,.25);border-left:5px solid var(--blue)}
+  .feedback.show{display:block;animation:floatIn .3s ease both}
+  .feedback.ok{border-left-color:var(--green)}
+  .feedback.no{border-left-color:var(--red)}
+  .feedback b.good{color:var(--green)} .feedback b.bad{color:var(--red)}
+  .feedback .expl{color:var(--muted);font-size:14px;margin-top:5px;display:block}
+
+  .hint{display:flex;justify-content:space-between;color:var(--muted);font-size:12.5px;margin-top:14px;flex-wrap:wrap;gap:6px}
+  .skip{background:none;border:1px dashed rgba(255,255,255,.3);color:var(--muted);
+    border-radius:10px;padding:6px 12px;cursor:pointer;font-family:inherit;font-size:12.5px}
+  .skip:hover{color:#fff;border-color:#fff}
+
+  /* 結算 */
+  .result-hero{text-align:center;padding:8px 0 4px}
+  .score-num{font-size:76px;font-weight:800;line-height:1;
+    background:linear-gradient(90deg,#ffd166,#ff7b9c,#4cc9f0);-webkit-background-clip:text;background-clip:text;color:transparent;
+    font-variant-numeric:tabular-nums}
+  .grade{font-size:19px;font-weight:700;margin-top:6px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:18px 0 6px}
+  .stat{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;padding:12px;text-align:center}
+  .stat .v{font-size:24px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+  .stat .k{font-size:12px;color:var(--muted);margin-top:3px}
+
+  .review-title{margin:20px 0 10px;font-size:16px;color:var(--blue);letter-spacing:1px}
+  .review{display:flex;flex-direction:column;gap:10px;max-height:340px;overflow-y:auto;padding-right:6px}
+  .review::-webkit-scrollbar{width:8px}
+  .review::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:8px}
+  .item{background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.1);
+    border-left:5px solid var(--green);border-radius:14px;padding:13px 15px}
+  .item.bad{border-left-color:var(--red)}
+  .item .head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+  .badge{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px}
+  .badge.y{background:rgba(6,214,160,.25);color:#8ef5d6}
+  .badge.n{background:rgba(239,71,111,.25);color:#ffb3c4}
+  .num{font-size:12px;color:var(--muted)}
+  .item .q{font-size:15px;font-weight:600;line-height:1.5}
+  .ans{font-size:13.5px;margin-top:6px;color:var(--muted);line-height:1.7}
+  .ans .right{color:var(--green);font-weight:700}
+  .ans .mine-wrong{color:var(--red);text-decoration:line-through}
+  .expl{font-size:13.5px;margin-top:7px;padding:9px 12px;background:rgba(255,255,255,.07);
+    border-radius:10px;color:#d8e6f2;line-height:1.65}
+  .expl::before{content:"💡 解析  ";font-weight:700;color:var(--gold)}
+  .actions{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-top:20px}
+  .footnote{text-align:center;color:var(--muted);font-size:12px;margin-top:16px;opacity:.8}
+  .miss-note{background:rgba(255,209,102,.16);border-left:5px solid var(--gold);
+    padding:10px 14px;border-radius:10px;font-size:13.5px;margin-top:10px;color:#ffe6ad}
+  @media (max-width:560px){
+    .app{padding:22px 16px 26px;border-radius:20px}
+    .opts{grid-template-columns:1fr}
+    .actions{grid-template-columns:1fr}
+    .score-num{font-size:60px}
+  }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+
+<div class="app">
+  <!-- ========== 開始畫面 ========== -->
+  <section class="screen active" id="screen-start">
+    <div class="logo">🐍</div>
+    <h1>Python 猜謎大挑戰</h1>
+    <p class="sub">60 秒限時 · 每回 10 題 · 答對越多分數越高</p>
+
+    <div class="rules">
+      <div class="rule"><b>⏱️ 60 秒限時</b><span>全場倒數計時，時間歸零立即結束，剩餘時間可轉為加分。</span></div>
+      <div class="rule"><b>❓ 每回 10 題</b><span>題庫隨機抽題，每題四選一，作答後立即揭曉答案與解析。</span></div>
+      <div class="rule"><b>🔊 音效與特效</b><span>答對撒花放煙火、答錯震動警示，全程搭配互動音效。</span></div>
+      <div class="rule"><b>📋 完整結算</b><span>結束後列出你的答案、正確答案與詳盡觀念解析，適合課後複習。</span></div>
+    </div>
+
+    <button class="btn" id="btn-start">🚀 開始挑戰</button>
+    <p class="footnote">操作說明：點擊選項作答，或按鍵盤 <b>1～4</b> 快速作答 · 供課堂暖身與自學複習使用</p>
+  </section>
+
+  <!-- ========== 遊戲畫面 ========== -->
+  <section class="screen" id="screen-game">
+    <div class="hud">
+      <span class="chip">題目 <b id="hud-idx">1</b>/10</span>
+      <span class="chip">得分 <b id="hud-score">0</b></span>
+      <span class="chip">連對 <b id="hud-streak">0</b> 🔥</span>
+      <span class="chip">難度 <b id="hud-level">入門</b></span>    </div>
+
+    <div class="timer-wrap">
+      <div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
+      <div class="timer-text">剩餘時間 <strong id="timer-num">60.0</strong> 秒</div>
+    </div>
+
+    <div class="qcard" id="qcard">
+      <span class="qtag">Question</span>
+      <div class="qtext" id="q-text"></div>
+    </div>
+
+    <div class="opts" id="opts"></div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="hint">
+      <span>提示：鍵盤 <b>1 / 2 / 3 / 4</b> 可快速作答</span>
+      <button class="skip" id="btn-skip">⏭ 跳過此題（計 0 分）</button>
+    </div>
+  </section>
+
+  <!-- ========== 結算畫面 ========== -->
+  <section class="screen" id="screen-result">
+    <div class="result-hero">
+      <div class="logo" style="font-size:44px">🏆</div>
+      <h1>挑戰結束 · 成績單</h1>
+      <div class="score-num" id="r-score">0</div>
+      <div class="grade" id="r-grade"></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v" id="r-correct">0/10</div><div class="k">答對題數</div></div>
+      <div class="stat"><div class="v" id="r-acc">0%</div><div class="k">正確率</div></div>
+      <div class="stat"><div class="v" id="r-time">0s</div><div class="k">作答時間</div></div>
+      <div class="stat"><div class="v" id="r-best">0</div><div class="k">最高連對</div></div>
+    </div>
+
+    <div class="miss-note" id="r-note"></div>
+
+    <div class="review-title">📖 逐題結果與正確答案解析</div>
+    <div class="review" id="review"></div>
+
+    <div class="actions">
+      <button class="btn" id="btn-retry">🔁 再挑戰一回（隨機抽題）</button>
+      <button class="btn ghost" id="btn-home">🏠 回到首頁</button>
+    </div>
+    <p class="footnote">本遊戲採隨機抽題，每回 10 題皆不同，建議多次挑戰以熟悉所有觀念。</p>
+  </section>
+</div>
+
+<script>
+/* =========================================================
+   題庫：Python 主題趣味謎題（每題含解析）
+   ========================================================= */
+const BANK = [
+  {q:"Python 語言的創始者是誰？",o:["Guido van Rossum","James Gosling","Brendan Eich","Linus Torvalds"],a:0,
+   e:"荷蘭工程師 Guido van Rossum 於 1991 年發明 Python，綽號「龜導（Benevolent Dictator For Life）」。"},
+  {q:"Python 程式檔的標準副檔名是下列哪一個？",o:[".py",".pt",".pyt",".script"],a:0,
+   e:"Python 原始檔以 .py 結尾，編譯後的位元組檔則是 .pyc。"},
+  {q:"要在畫面上印出文字，該使用哪個函式？",o:["print()","echo()","console.log()","write()"],a:0,
+   e:"print() 是 Python 的標準輸出函式；console.log() 屬於 JavaScript。"},
+  {q:"建立 Python 清單（list）應使用哪種符號？",o:["方括號 [ ]","大括號 { }","圓括號 ( )","尖括號 < >"],a:0,
+   e:"list 用 [ ]、dict/set 用 { }、tuple 用 ( )，是最常見的型別記號考題。"},
+  {q:"字典（dict）的資料結構特色為何？",o:["以鍵值對 key-value 配對存取","只能存數字","無法新增元素","必須依序排列"],a:0,
+   e:"dict 以 key 索引 value，例如 score[\"小明\"]，查找速度快且可動態增刪。"},
+  {q:"定義一個函式要用哪個關鍵字？",o:["def","function","func","define"],a:0,
+   e:"Python 用 def 定義函式；function 是 JavaScript 的關鍵字。"},
+  {q:"執行 len(\"Python\") 會得到什麼結果？",o:["6","5","7","會報錯"],a:0,
+   e:"len() 回傳字串字元數，P-y-t-h-o-n 共 6 個字元。"},
+  {q:"運算式 3 ** 2 的結果是多少？",o:["9","6","5","32"],a:0,
+   e:"** 是冪次運算子，3 ** 2 = 3² = 9。"},
+  {q:"哪個函式可用來讀取使用者從鍵盤輸入的內容？",o:["input()","read()","scan()","get()"],a:0,
+   e:"input() 會讀取一行字串並暫停等待輸入，需要數值時再搭配 int() 或 float() 轉換。"},
+  {q:"Python 屬於哪一種語言？",o:["直譯式語言","純編譯式語言","僅網頁標記語言","組合語言"],a:0,
+   e:"Python 由直譯器逐行執行（現代作法是編成位元組碼再由虛擬機執行），屬直譯式語言。"},
+  {q:"下列哪個【不是】Python 的內建資料型別？",o:["array","list","tuple","set"],a:0,
+   e:"array 需 import array 模組才存在，list/tuple/str/dict/set/int/float 都是內建型別。"},
+  {q:"運算式 True and False 的結果是？",o:["True","False","None","會報錯"],a:0,
+   e:"邏輯運算 and 要求兩邊皆為 True 才回傳 True，故結果為 False。"},
+  {q:"想在迴圈中產生 0、1、2、3，應使用哪個函式？",o:["range(4)","list(0,3)","seq(4)","loop(4)"],a:0,
+   e:"range(4) 產生 0~3 共 4 個數字；range(1,5) 則產生 1~4。"},
+  {q:"在 Python 中，哪個符號後方的文字會被視為註解？",o:["#","//","/*","%"],a:0,
+   e:"Python 單行註解用 #；// 是 JavaScript 的註解，/* */ 是 C 系語言的區塊註解。"},
+  {q:"執行 \"hello\"[0] 會得到什麼？",o:["h","hello","0","會報錯"],a:0,
+   e:"字串可用索引取值且從 0 開始，故 [0] 取得第一個字元 h。"},
+  {q:"3 // 2 的結果是多少？",o:["1","1.5","2","0"],a:0,
+   e:"// 是地板除法（整數除法），捨去小數部分，3 // 2 = 1；要小數需用 3 / 2。"},
+  {q:"建立類別（class）要用哪個關鍵字？",o:["class","struct","object","type"],a:0,
+   e:"Python 以 class 定義類別，並用 __init__ 建構子初始化屬性。"},
+  {q:"try ... except 的主要用途是什麼？",o:["處理例外錯誤","定義迴圈","匯入模組","建立視窗"],a:0,
+   e:"try 區塊嘗試執行可能出錯的程式，except 捕捉指定例外，避免程式直接崩潰。"},
+  {q:"10 % 3 的結果是多少？",o:["1","3","0","3.33"],a:0,
+   e:"% 是取餘數運算子，10 = 3 × 3 + 1，故餘數為 1。"},
+  {q:"想在 Python 中看到《Python 之禪》，該輸入哪個指令？",o:["import this","import zen","print(zen)","help(zen)"],a:0,
+   e:"輸入 import this 會印出 Easter egg「The Zen of Python」，是 Python 界最著名的彩蛋。"},
+  {q:"移除清單中最後一個元素，最常用哪個方法？",o:["pop()","del()","cut()","removeLast()"],a:0,
+   e:"list.pop() 會移除並回傳最後一項；若指定 pop(i) 則移除第 i 項。"},
+  {q:"要把字串 \"123\" 轉成整數，該用哪個函式？",o:["int()","str()","num()","float()"],a:0,
+   e:"int() 轉整數、float() 轉小數、str() 轉字串，三者是最基本的型別轉換函式。"},
+  {q:"range(1, 5) 會產生幾個數字？",o:["4","5","3","6"],a:0,
+   e:"range 含頭不含尾，產生 1、2、3、4 共 4 個數字。"},
+  {q:"想知道一個物件的資料型別，可用哪個函式？",o:["type()","kind()","class()","check()"],a:0,
+   e:"type(3.14) 回傳 <class 'float'>；isinstance() 則可用來判斷是否為某型別的實例。"},
+  {q:"tuple 與 list 最主要的差異是什麼？",o:["tuple 不可修改、list 可修改","tuple 較快消失","list 不能存字串","兩者完全相同"],a:0,
+   e:"tuple 為不可變（immutable），適合固定資料如座標；list 可增刪改（mutable）。"},
+  {q:"1 + 2 * 3 的運算結果是多少？",o:["7","9","6","12"],a:0,
+   e:"Python 遵循先乘除後加減，2*3=6，再加 1 得 7；可用括號 (1+2)*3 改變順序。"},
+  {q:"\"Py\" + \"thon\" 的結果是？",o:["Python","Py thon","thonPy","會報錯"],a:0,
+   e:"+ 對字串而言是串接運算子，可將兩個字串連接成一個新字串。"},
+  {q:"下列何者是正確的 f-string 寫法？",o:["f\"我是{name}\"","f\"我是\" + name","F{name}\"","str:name"],a:0,
+   e:"Python 3.6+ 的 f-string 以 f 開頭，將 { } 內的變數直接嵌入字串，語法最簡潔。"},
+  {q:"讓 Python 檔案「被直接執行時才做事」的常見寫法是？",o:["if __name__ == \"__main__\":","if run():","start()","main=True"],a:0,
+   e:"當檔案被直接執行時 __name__ 為 \"__main__\"；被 import 時則為模組名稱，可避免副作用。"},
+  {q:"安裝第三方套件最常用的指令工具是？",o:["pip","apt","npm","wget"],a:0,
+   e:"pip 是 Python 官方套件管理器，例如 pip install requests；npm 屬於 Node.js 生態系。"},
+  {q:"sort() 對清單排序後的回傳值是什麼？",o:["None（原地修改）","新的排序清單","字串","布林值"],a:0,
+   e:"list.sort() 直接修改原清單並回傳 None；要保留原清單請用 sorted(lst)。"},
+  {q:"下列哪一段程式會印出 1 到 5？",o:["for i in range(1,6): print(i)","for i in range(1,5): print(i)","for i in 1..5: print(i)","while i=1 to 5"],a:0,
+   e:"range 含頭不含尾，要含 5 必須寫到 6，即 range(1,6)。"},
+  {q:"空的 tuple 應該如何表示？",o:["()","[]","{}","<>"],a:0,
+   e:"空 tuple 用 ()，空 list 用 []，空 dict 用 {}；三者形狀不同卻常被考生混淆。"},
+  {q:"下列哪個是合法的 Python 變數名稱？",o:["my_var2","2my_var","my-var","my var"],a:0,
+   e:"變數名只能包含字母、數字與底線，且不可開頭為數字、不可含連字號或空白。"},
+  {q:"想結束整個迴圈（不再繼續下一輪），應使用？",o:["break","continue","pass","return"],a:0,
+   e:"break 直接跳出迴圈；continue 只是跳過本輪剩餘程式、進入下一輪。"},
+];
+
+/* =========================================================
+   狀態
+   ========================================================= */
+const ROUND = 10, TOTAL_TIME = 60;
+let quiz = [], idx = 0, score = 0, streak = 0, bestStreak = 0;
+let correctCount = 0, answers = [], remain = TOTAL_TIME;
+let timerId = null, locked = false, startedAt = 0, usedTime = 0;
+
+const $ = s => document.querySelector(s);
+const screens = {start:$("#screen-start"), game:$("#screen-game"), result:$("#screen-result")};
+function show(name){Object.values(screens).forEach(s=>s.classList.remove("active"));screens[name].classList.add("active");}
+
+/* =========================================================
+   音效（Web Audio API，免外部檔案）
+   ========================================================= */
+let actx = null;
+function ac(){ if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+  if(actx.state==="suspended") actx.resume(); return actx; }
+function tone(freq, dur=.16, type="sine", vol=.22, delay=0){
+  const c = ac(), t = c.currentTime + delay;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + .02);
+  g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + .02);
+}
+const sfx = {
+  click(){ tone(680,.08,"triangle",.16); },
+  correct(){ [523,659,784,1047].forEach((f,i)=>tone(f,.22,"triangle",.2,i*.08)); },
+  wrong(){ tone(190,.28,"sawtooth",.18); tone(140,.32,"sawtooth",.14,.08); },
+  tick(){ tone(880,.05,"square",.1); },
+  warn(){ tone(1046,.09,"square",.14); },
+  over(){ [660,524,392,262].forEach((f,i)=>tone(f,.35,"triangle",.2,i*.14)); },
+  win(){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,.3,"triangle",.2,i*.11)); }
+};
+
+/* =========================================================
+   畫布特效：彩帶 / 火花
+   ========================================================= */
+const cv = $("#fx"), ctx = cv.getContext("2d");
+let parts = [];
+function resize(){ cv.width = innerWidth; cv.height = innerHeight; }
+addEventListener("resize", resize); resize();
+function burst(x,y,colors,n=46,power=8){
+  for(let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2, sp = 2+Math.random()*power;
+    parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2,life:60+Math.random()*30,
+      c:colors[i%colors.length],r:3+Math.random()*5,rot:Math.random()*6,vr:(Math.random()-.5)*.3});
+  }
+}
+function confetti(n=90){
+  const cols=["#06d6a0","#4cc9f0","#ffd166","#ef476f","#ffffff","#ff7b9c"];
+  for(let i=0;i<n;i++){
+    parts.push({x:Math.random()*cv.width,y:-20-Math.random()*cv.height*.4,
+      vx:(Math.random()-.5)*2.6,vy:2+Math.random()*4,life:150+Math.random()*70,
+      c:cols[i%cols.length],r:4+Math.random()*6,rot:Math.random()*6,vr:(Math.random()-.5)*.35});
+  }
+}
+function loop(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  parts = parts.filter(p=>p.life>0);
+  parts.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.vy+=.16; p.vx*=.99; p.rot+=p.vr; p.life--;
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+    ctx.globalAlpha = Math.min(1,p.life/40);
+    ctx.fillStyle = p.c; ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*.62);
+    ctx.restore();
+  });
+  requestAnimationFrame(loop);
+}
+loop();
+function shake(el){ el.style.animation="none"; void el.offsetWidth; el.style.animation=""; }
+
+/* =========================================================
+   遊戲流程
+   ========================================================= */
+function pickRound(){
+  const pool = [...BANK].sort(()=>Math.random()-.5);
+  return pool.slice(0,ROUND).map(q=>{
+    const opts = q.o.map((t,i)=>({t, ok:i===q.a})).sort(()=>Math.random()-.5);
+    return {q:q.q, opts, a:opts.findIndex(o=>o.ok), e:q.e};
+  });
+}
+
+function startGame(){
+  ac(); sfx.click();
+  quiz = pickRound(); idx=0; score=0; streak=0; bestStreak=0; correctCount=0;
+  answers=[]; remain=TOTAL_TIME; usedTime=0; locked=false; startedAt=Date.now();
+  clearInterval(timerId);
+  $("#hud-score").textContent="0"; $("#hud-streak").textContent="0";
+  $("#timer-fill").className="timer-fill"; $("#timer-num").textContent="60.0";
+  show("game"); renderQ();
+  timerId = setInterval(tickTimer, 100);
+  lastWarn = 61;
+}
+
+let lastWarn = 61;
+function tickTimer(){
+  remain -= .1;
+  if(remain<=0){ remain=0; drawTimer(); endGame(true); return; }
+  drawTimer();
+  const sec = Math.ceil(remain);
+  if(sec<=10 && sec<lastWarn){ lastWarn=sec; sfx.warn(); $("#timer-fill").classList.add("danger"); }
+}
+function drawTimer(){
+  const pct = remain/TOTAL_TIME*100;
+  const f = $("#timer-fill");
+  f.style.width = pct+"%";
+  $("#timer-num").textContent = remain.toFixed(1);
+  if(remain>30) f.className="timer-fill";
+  else if(remain>10) f.className="timer-fill warn";
+  else f.className="timer-fill danger";
+}
+
+function renderQ(){
+  const item = quiz[idx];
+  locked=false;
+  $("#hud-idx").textContent = idx+1;
+  $("#hud-level").textContent = idx<3?"入門":idx<7?"進階":"挑戰";
+  $("#q-text").innerHTML = item.q.replace(/`([^`]+)`/g,'<span class="code">$1</span>');
+  const wrap = $("#opts"); wrap.innerHTML="";
+  item.opts.forEach((o,i)=>{
+    const b = document.createElement("button");
+    b.className="opt";
+    b.innerHTML = `<span class="key">${i+1}</span><span>${o.t}</span>`;
+    b.onclick = ()=>answer(i);
+    wrap.appendChild(b);
+  });
+  $("#feedback").className="feedback"; $("#feedback").innerHTML="";
+}
+
+function answer(i, skipped=false){
+  if(locked) return;
+  locked = true;
+  const item = quiz[idx];
+  const correct = !skipped && i===item.a;
+  const btns = [...document.querySelectorAll(".opt")];
+  btns.forEach(b=>b.disabled=true);
+
+  // 揭曉
+  btns[item.a].classList.add("correct");
+  if(!correct && i>=0) btns[i].classList.add("wrong");
+  btns.forEach((b,k)=>{ if(k!==item.a && k!==i) b.classList.add("dim"); });
+
+  const fb = $("#feedback");
+  if(correct){
+    streak++; bestStreak=Math.max(bestStreak,streak);
+    const gain = 100 + Math.min(100,(streak-1)*20);
+    score += gain; correctCount++;
+    fb.className="feedback show ok";
+    fb.innerHTML = `<b class="good">🎉 答對了！ +${gain} 分</b> 連對 ${streak} 火 🔥
+      <span class="expl">${item.e}</span>`;
+    sfx.correct();
+    const r = btns[item.a].getBoundingClientRect();
+    burst(r.left+r.width/2, r.top+r.height/2, ["#06d6a0","#ffd166","#4cc9f0","#fff"], 50, 7);
+    confetti(34);
+  }else{
+    streak=0;
+    fb.className="feedback show no";
+    fb.innerHTML = skipped
+      ? `<b class="bad">⏭ 已跳過</b> 正確答案是：<b class="good">${item.opts[item.a].t}</b>
+         <span class="expl">${item.e}</span>`
+      : `<b class="bad">😢 答錯了</b> 正確答案：<b class="good">${item.opts[item.a].t}</b>
+         <span class="expl">${item.e}</span>`;
+    sfx.wrong(); shake($("#qcard"));
+  }
+  $("#hud-score").textContent = score;
+  $("#hud-streak").textContent = streak;
+  answers.push({q:item.q, mine: skipped?null:item.opts[i]?.t ?? null,
+                right:item.opts[item.a].t, ok:correct, e:item.e});
+
+  setTimeout(()=>{
+    idx++;
+    if(idx>=ROUND) endGame(false);
+    else renderQ();
+  }, 2000);
+}
+
+function endGame(timeUp){
+  clearInterval(timerId);
+  usedTime = Math.min(TOTAL_TIME, TOTAL_TIME - remain);
+  if(timeUp) usedTime = TOTAL_TIME;
+  // 剩餘時間轉為加分（每剩 1 秒 +10 分）
+  const timeBonus = timeUp?0:Math.round(remain)*10;
+  const finalScore = score + timeBonus;
+  sfx.over(); setTimeout(()=>{ finalScore>=600?sfx.win():0; }, 500);
+  confetti(finalScore>=600?150:60);
+  if(finalScore>=600){ setTimeout(()=>confetti(90),700); setTimeout(()=>confetti(90),1400); }
+  renderResult(finalScore, timeBonus, timeUp);
+  show("result");
+}
+
+function renderResult(finalScore, timeBonus, timeUp){
+  const acc = Math.round(correctCount/ROUND*100);
+  // 分數動畫
+  const el = $("#r-score"); let cur=0;
+  const step = Math.max(1, Math.round(finalScore/45));
+  const iv = setInterval(()=>{ cur+=step; if(cur>=finalScore){cur=finalScore;clearInterval(iv);} el.textContent=cur; },18);
+
+  let grade="";
+  if(acc===100) grade="🏅 滿分滿級！Python 小天才";
+  else if(acc>=80) grade="🌟 優秀！觀念非常紮實";
+  else if(acc>=60) grade="👍 及格！再多練幾回更穩";
+  else if(acc>=40) grade="💪 加油！看看下方解析複習";
+  else grade="📖 建議先複習基礎語法再挑戰";
+  $("#r-grade").textContent = grade;
+  $("#r-correct").textContent = `${correctCount}/${ROUND}`;
+  $("#r-acc").textContent = acc+"%";
+  $("#r-time").textContent = usedTime.toFixed(1)+"s";
+  $("#r-best").textContent = bestStreak;
+
+  const miss = ROUND-correctCount;
+  $("#r-note").innerHTML = timeUp
+    ? `⏰ 時間到！${miss===0?"十題全對，太厲害了！":`共錯 ${miss} 題，時間歸零提前結束。`}${timeBonus?` 時間加成 +${timeBonus} 分。`:""}`
+    : (miss===0 ? `🎉 十題全對！完成用時 ${usedTime.toFixed(1)} 秒，時間加成 +${timeBonus} 分。`
+                 : `共錯 ${miss} 題，完成用時 ${usedTime.toFixed(1)} 秒，剩餘時間加成 +${timeBonus} 分。`);
+
+  const rev = $("#review"); rev.innerHTML="";
+  answers.forEach((r,i)=>{
+    const d = document.createElement("div");
+    d.className = "item"+(r.ok?"":" bad");
+    const mineTxt = r.mine===null
+      ? `<span style="color:#ffd166">（跳過）</span>`
+      : (r.ok? `<span class="right">${r.mine}</span>` : `<span class="mine-wrong">${r.mine}</span>`);
+    d.innerHTML = `
+      <div class="head">
+        <span class="badge ${r.ok?"y":"n"}">${r.ok?"✔ 答對":"✘ 答錯"}</span>
+        <span class="num">第 ${i+1} 題</span>
+      </div>
+      <div class="q">${r.q}</div>
+      <div class="ans">你的答案：${mineTxt}<br>正確答案：<span class="right">${r.right}</span></div>
+      <div class="expl">${r.e}</div>`;
+    rev.appendChild(d);
+  });
+}
+
+/* =========================================================
+   事件
+   ========================================================= */
+$("#btn-start").onclick = startGame;
+$("#btn-retry").onclick = startGame;
+$("#btn-home").onclick = ()=>{ sfx.click(); show("start"); };
+$("#btn-skip").onclick = ()=>{ if(!locked){ sfx.click(); answer(-1,true); } };
+
+document.addEventListener("keydown", e=>{
+  if(screens.game.classList.contains("active")){
+    if(["1","2","3","4"].includes(e.key)) answer(+e.key-1);
+    if(e.key==="Escape") $("#btn-skip").click();
+  }else if(e.key==="Enter" && screens.start.classList.contains("active")){
+    startGame();
+  }
+});
+</script>
+</body>
+</html>
